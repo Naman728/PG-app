@@ -1,0 +1,30 @@
+{
+  "name": "pg-manager",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "packages/shared"
+  ],
+  "scripts": {
+    "prepare": "npm run build -w @pg-manager/shared && husky",
+    "dev": "concurrently \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "build": "npm run build -w @pg-manager/shared && npm run build -w backend && npm run build -w frontend",
+    "lint": "npm run lint -w frontend && npm run lint -w backend",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:generate": "npm run db:generate -w backend",
+    "db:migrate": "npm run db:migrate -w backend",
+    "db:push": "npm run db:push -w backend",
+    "db:seed": "npm run db:seed -w backend"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,mjs,json,css,md,yml,yaml}": "prettier --write"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2",
+    "prettier": "^3.5.3"
+  }
+}

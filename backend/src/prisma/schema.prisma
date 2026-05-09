@@ -1,0 +1,634 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Global product role used for portal routing and coarse RBAC.
+enum UserRole {
+  OWNER
+  STAFF
+  TENANT
+}
+
+/// Fine-grained access within an organization (supports multiple co-owners).
+enum OrgRole {
+  OWNER
+  MANAGER
+  STAFF
+  TENANT
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum BedStatus {
+  OCCUPIED_PAID
+  OCCUPIED_UNPAID
+  VACANT
+  UNDER_MAINTENANCE
+}
+
+enum TenantLifecycleStatus {
+  ONBOARDING
+  PENDING_REVIEW
+  ACTIVE
+  MOVING_OUT
+  MOVED_OUT
+  SUSPENDED
+}
+
+enum TenantDocumentCategory {
+  AADHAAR_FRONT
+  AADHAAR_BACK
+  PROFILE_PHOTO
+  RENT_AGREEMENT
+  OTHER
+}
+
+enum TenantDocumentReviewStatus {
+  UPLOADED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  phone         String?   @unique
+  email         String?   @unique
+  passwordHash  String?
+  name          String?
+  role          UserRole  @default(OWNER)
+  phoneVerified Boolean   @default(false)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  memberships            OrganizationMember[]
+  refreshTokens          RefreshToken[]
+  otpChallenges            OtpChallenge[]
+  auditLogsAuthored      AuditLog[]        @relation("AuditActor")
+  tenantHistories        TenantHistory[]   @relation("TenantHistoryTenant")
+  tenantHistoriesCreated TenantHistory[]   @relation("TenantHistoryActor")
+  tenantInvitationsSent  TenantInvitation[] @relation("TenantInvitationInviter")
+  beds                   Bed[]
+  tenantProfiles         Tenant[]
+  documentsReviewed      TenantDocument[] @relation("DocumentReviewer")
+  rentInvoicesAsTenant   RentInvoice[]     @relation("RentInvoiceTenant")
+  rentInvoicesConfirmed  RentInvoice[]     @relation("RentInvoiceConfirmedBy")
+  maintenanceTicketsCreated MaintenanceTicket[] @relation("MaintenanceTicketCreator")
+  maintenanceTicketsAssigned MaintenanceTicket[] @relation("MaintenanceTicketAssignee")
+  maintenanceMessages MaintenanceTicketMessage[] @relation("MaintenanceMessageAuthor")
+  maintenanceAttachments MaintenanceTicketAttachment[] @relation("MaintenanceAttachmentUploader")
+  maintenanceActivities MaintenanceTicketActivity[] @relation("MaintenanceActivityActor")
+  inAppNotifications    InAppNotification[]
+
+  @@index([deletedAt])
+  @@index([role])
+}
+
+model Floor {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  name           String
+  sortOrder      Int       @default(0)
+  gridColumns    Int       @default(12)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rooms        Room[]
+
+  @@index([organizationId, sortOrder])
+}
+
+model Room {
+  id        String    @id @default(uuid()) @db.Uuid
+  floorId   String    @db.Uuid
+  name      String
+  /// Human label e.g. "3-sharing" for quick-setup rooms; editable later.
+  sharingLabel String?
+  colStart  Int       @default(1)
+  colSpan   Int       @default(3)
+  rowStart  Int       @default(1)
+  rowSpan   Int       @default(2)
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  floor Floor @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  beds  Bed[]
+
+  @@index([floorId])
+  @@index([floorId, name])
+}
+
+model Bed {
+  id               String     @id @default(uuid()) @db.Uuid
+  roomId           String     @db.Uuid
+  label            String
+  status           BedStatus  @default(VACANT)
+  monthlyRentMinor Int        @default(0)
+  tenantUserId     String?    @db.Uuid
+  paidThrough      DateTime?
+  maintenanceNote  String?
+  assignedAt       DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  deletedAt        DateTime?
+
+  room   Room  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  tenant User? @relation(fields: [tenantUserId], references: [id], onDelete: SetNull)
+  rentInvoices RentInvoice[]
+  maintenanceTickets MaintenanceTicket[]
+
+  @@index([roomId])
+  @@index([tenantUserId])
+  @@index([status])
+}
+
+/// A PG property / business unit. One org can have many members and many future rooms/leases.
+model Organization {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String
+  city      String    @default("Bengaluru")
+  addressLine1 String?
+  addressLine2 String?
+  locality     String?
+  pincode      String?
+  onboardingCompletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  members        OrganizationMember[]
+  auditLogs      AuditLog[]
+  tenantHistory  TenantHistory[]
+  payments       Payment[]
+  tenantInvitations TenantInvitation[]
+  floors            Floor[]
+  tenants           Tenant[]
+  tenantDocuments   TenantDocument[]
+  rentReminderSettings RentReminderSettings?
+  rentInvoices      RentInvoice[]
+  notificationJobs  NotificationJob[]
+  maintenanceTickets  MaintenanceTicket[]
+  inAppNotifications  InAppNotification[]
+
+  @@index([deletedAt])
+  @@index([city])
+}
+
+/// Owner/tenant in-app feed (primary channel for operational alerts).
+model InAppNotification {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @db.Uuid
+  organizationId   String    @db.Uuid
+  category         String
+  title            String
+  body             String    @db.Text
+  readAt           DateTime?
+  metadata         Json?
+  createdAt        DateTime  @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@index([organizationId, createdAt])
+}
+
+/// Org-scoped tenant profile & KYC lifecycle (one row per user per PG).
+model Tenant {
+  id                 String                 @id @default(uuid()) @db.Uuid
+  organizationId     String                 @db.Uuid
+  userId             String                 @db.Uuid
+  status             TenantLifecycleStatus  @default(ONBOARDING)
+  moveInAt           DateTime?
+  moveOutAt          DateTime?
+  /// Last 4 digits only — full Aadhaar is never stored.
+  aadhaarLast4       String?
+  dateOfBirth        DateTime?
+  occupation         String?
+  permanentAddress   String?                @db.Text
+  kycSubmittedAt     DateTime?
+  onboardedAt        DateTime?
+  statusNote         String?                @db.Text
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  deletedAt          DateTime?
+
+  organization       Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents          TenantDocument[]
+  emergencyContacts  TenantEmergencyContact[]
+
+  @@unique([organizationId, userId])
+  @@index([organizationId, status])
+}
+
+model TenantDocument {
+  id                 String                     @id @default(uuid()) @db.Uuid
+  tenantId           String                     @db.Uuid
+  organizationId     String                     @db.Uuid
+  category           TenantDocumentCategory
+  reviewStatus       TenantDocumentReviewStatus @default(UPLOADED)
+  originalFilename   String
+  mimeType           String
+  byteSize           Int
+  cloudinaryPublicId String                     @unique
+  resourceType       String                     @default("image")
+  reviewNote         String?
+  reviewedByUserId   String?                    @db.Uuid
+  reviewedAt         DateTime?
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  deletedAt          DateTime?
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reviewedBy   User?        @relation("DocumentReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([organizationId, reviewStatus])
+}
+
+model TenantEmergencyContact {
+  id        String    @id @default(uuid()) @db.Uuid
+  tenantId  String    @db.Uuid
+  name      String
+  phone     String
+  relation  String
+  isPrimary Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model OrganizationMember {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  userId         String   @db.Uuid
+  orgRole        OrgRole  @default(STAFF)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@index([userId, orgRole])
+  @@index([organizationId, orgRole])
+}
+
+model OtpChallenge {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String?   @db.Uuid
+  phone        String
+  codeHash     String
+  channel      String
+  expiresAt    DateTime
+  consumedAt   DateTime?
+  attemptCount Int       @default(0)
+  createdAt    DateTime  @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([phone, expiresAt])
+  @@index([consumedAt])
+}
+
+model TenantInvitation {
+  id               String    @id @default(uuid()) @db.Uuid
+  organizationId   String    @db.Uuid
+  phone            String
+  invitedByUserId  String    @db.Uuid
+  tokenHash        String    @unique
+  expiresAt        DateTime
+  consumedAt       DateTime?
+  createdAt        DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation("TenantInvitationInviter", fields: [invitedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, phone])
+  @@index([expiresAt])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String?
+  ip        String?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// Append-only tenant lifecycle trail (check-ins, transfers, exits) for analytics and disputes.
+model TenantHistory {
+  id                String   @id @default(uuid()) @db.Uuid
+  organizationId    String   @db.Uuid
+  tenantUserId      String   @db.Uuid
+  eventType         String
+  payload           Json?
+  createdAt         DateTime @default(now())
+  createdByUserId   String?  @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tenant       User         @relation("TenantHistoryTenant", fields: [tenantUserId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("TenantHistoryActor", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, tenantUserId, createdAt])
+  @@index([tenantUserId, createdAt])
+}
+
+/// Generic audit log for security-sensitive actions across modules.
+model AuditLog {
+  id               String   @id @default(uuid()) @db.Uuid
+  organizationId   String?  @db.Uuid
+  actorUserId      String?  @db.Uuid
+  action           String
+  entityType       String
+  entityId         String?  @db.Uuid
+  metadata         Json?
+  ip               String?
+  userAgent        String?
+  createdAt        DateTime @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  actor        User?         @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([entityType, entityId])
+  @@index([actorUserId, createdAt])
+}
+
+/// Payment ledger placeholder for Razorpay/Stripe/etc. (no provider SDK wired yet).
+model Payment {
+  id               String        @id @default(uuid()) @db.Uuid
+  organizationId   String        @db.Uuid
+  amountMinor      Int
+  currency         String        @default("INR")
+  status           PaymentStatus @default(PENDING)
+  provider         String
+  externalId       String?       @unique
+  idempotencyKey   String?       @unique
+  metadata         Json?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status, createdAt])
+  @@index([provider, externalId])
+}
+
+enum RentInvoiceStatus {
+  DUE
+  PAID
+  OVERDUE
+  WAIVED
+}
+
+enum NotificationJobStatus {
+  QUEUED
+  PROCESSING
+  SENT
+  FAILED
+  DEAD
+}
+
+model RentReminderSettings {
+  id                          String   @id @default(uuid()) @db.Uuid
+  organizationId              String   @unique @db.Uuid
+  /// Calendar day (1–28) rent is due each month.
+  dueDayOfMonth               Int      @default(5)
+  /// Send “upcoming” reminders this many days before due date.
+  remindDaysBefore            Int      @default(3)
+  /// Minimum days between repeat overdue nudges to the same tenant invoice.
+  overdueRepeatDays           Int      @default(3)
+  whatsappEnabled             Boolean  @default(true)
+  /// SMS is optional; in-app + WhatsApp are preferred.
+  smsFallbackEnabled          Boolean  @default(false)
+  ownerOverdueDigestEnabled   Boolean  @default(true)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model RentInvoice {
+  id                  String            @id @default(uuid()) @db.Uuid
+  organizationId    String            @db.Uuid
+  bedId               String            @db.Uuid
+  tenantUserId        String            @db.Uuid
+  billingYear         Int
+  billingMonth        Int
+  amountMinor         Int
+  currency            String            @default("INR")
+  dueDate             DateTime
+  status              RentInvoiceStatus @default(DUE)
+  paidAt              DateTime?
+  paidAmountMinor     Int?
+  paymentMethod       String?
+  confirmedByUserId   String?           @db.Uuid
+  notes               String?           @db.Text
+  receiptNumber       String?
+  reminderLastSentAt  DateTime?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bed          Bed          @relation(fields: [bedId], references: [id], onDelete: Cascade)
+  tenant       User         @relation("RentInvoiceTenant", fields: [tenantUserId], references: [id], onDelete: Cascade)
+  confirmedBy  User?        @relation("RentInvoiceConfirmedBy", fields: [confirmedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([bedId, billingYear, billingMonth])
+  @@index([bedId, status])
+  @@index([organizationId, billingYear, billingMonth])
+  @@index([organizationId, status])
+  @@index([organizationId, tenantUserId])
+  @@index([tenantUserId, status])
+}
+
+model NotificationJob {
+  id               String                 @id @default(uuid()) @db.Uuid
+  organizationId String                 @db.Uuid
+  type             String
+  payload          Json
+  status           NotificationJobStatus  @default(QUEUED)
+  scheduledAt      DateTime               @default(now())
+  attemptCount     Int                    @default(0)
+  maxAttempts      Int                    @default(6)
+  nextAttemptAt    DateTime?
+  lastError        String?
+  lockedAt         DateTime?
+  processedAt      DateTime?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  deliveries   NotificationDelivery[]
+
+  @@index([status, scheduledAt, nextAttemptAt])
+  @@index([organizationId, createdAt])
+}
+
+model NotificationDelivery {
+  id            String   @id @default(uuid()) @db.Uuid
+  jobId         String   @db.Uuid
+  channel       String
+  toPhone       String
+  success       Boolean
+  providerSid   String?
+  errorMessage  String?
+  body          String?  @db.Text
+  createdAt     DateTime @default(now())
+
+  job NotificationJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, createdAt])
+}
+
+enum MaintenanceTicketCategory {
+  PLUMBING
+  ELECTRICAL
+  HVAC
+  APPLIANCE
+  FURNITURE
+  PEST
+  CLEANING
+  STRUCTURAL
+  INTERNET
+  COMMON_AREA
+  OTHER
+}
+
+enum MaintenanceTicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum MaintenanceTicketStatus {
+  OPEN
+  ACKNOWLEDGED
+  IN_PROGRESS
+  BLOCKED
+  RESOLVED
+  CLOSED
+}
+
+enum MaintenanceMessageVisibility {
+  INTERNAL
+  TENANT
+}
+
+model MaintenanceTicket {
+  id                   String                     @id @default(uuid()) @db.Uuid
+  organizationId       String                     @db.Uuid
+  tenantUserId         String                     @db.Uuid
+  bedId                String?                    @db.Uuid
+  title                String
+  description          String                     @db.Text
+  category             MaintenanceTicketCategory
+  priority             MaintenanceTicketPriority  @default(MEDIUM)
+  status               MaintenanceTicketStatus    @default(OPEN)
+  assignedToUserId     String?                    @db.Uuid
+  resolutionSummary    String?                    @db.Text
+  resolutionCostMinor    Int?
+  resolvedAt           DateTime?
+  resolutionRating     Int?
+  resolutionFeedback   String?                    @db.Text
+  ratedAt              DateTime?
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  deletedAt            DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tenant       User         @relation("MaintenanceTicketCreator", fields: [tenantUserId], references: [id], onDelete: Cascade)
+  bed          Bed?         @relation(fields: [bedId], references: [id], onDelete: SetNull)
+  assignee     User?        @relation("MaintenanceTicketAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  attachments  MaintenanceTicketAttachment[]
+  messages     MaintenanceTicketMessage[]
+  activities   MaintenanceTicketActivity[]
+
+  @@index([bedId, deletedAt, status])
+  @@index([organizationId, status, priority, updatedAt])
+  @@index([organizationId, category, status])
+  @@index([organizationId, tenantUserId])
+  @@index([tenantUserId, status])
+  @@index([assignedToUserId, status])
+  @@index([organizationId, createdAt])
+}
+
+model MaintenanceTicketAttachment {
+  id                 String   @id @default(uuid()) @db.Uuid
+  ticketId           String   @db.Uuid
+  cloudinaryPublicId String   @unique
+  mimeType           String
+  byteSize           Int
+  originalFilename   String
+  uploadedByUserId   String   @db.Uuid
+  createdAt          DateTime @default(now())
+
+  ticket     MaintenanceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  uploadedBy User              @relation("MaintenanceAttachmentUploader", fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+}
+
+model MaintenanceTicketMessage {
+  id          String                       @id @default(uuid()) @db.Uuid
+  ticketId    String                       @db.Uuid
+  authorUserId String                     @db.Uuid
+  body        String                       @db.Text
+  visibility  MaintenanceMessageVisibility @default(TENANT)
+  createdAt   DateTime                     @default(now())
+
+  ticket MaintenanceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User              @relation("MaintenanceMessageAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+}
+
+model MaintenanceTicketActivity {
+  id           String   @id @default(uuid()) @db.Uuid
+  ticketId     String   @db.Uuid
+  actorUserId  String?  @db.Uuid
+  activityType String
+  payload      Json?
+  createdAt    DateTime @default(now())
+
+  ticket MaintenanceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor  User?             @relation("MaintenanceActivityActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
+}
