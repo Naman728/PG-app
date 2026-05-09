@@ -1,1 +1,0 @@
-import{a as e}from"./vendor-query-BHmN6ko2.js";import{t}from"./EmailAuthForm-CpWlB7ZU.js";var n=e();function r(){return(0,n.jsx)(t,{mode:`login`})}export{r as LoginPage};

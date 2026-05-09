@@ -2,11 +2,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { NavLink } from "react-router-dom";
 import { toast } from "sonner";
 import { updateTenantProfileDto, type UpdateTenantProfileInput } from "@pg-manager/shared";
 import type { z } from "zod";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
+import { ROUTES } from "../../constants/routes";
 import { fetchTenantProfile, patchTenantProfile } from "../../services/tenant.api";
 
 type Form = z.infer<typeof updateTenantProfileDto>;
@@ -43,6 +45,7 @@ export function TenantProfilePage() {
   const locked = t?.status === "PENDING_REVIEW";
 
   return (
+    <div className="space-y-4">
     <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5">
       <h2 className="text-sm font-semibold text-slate-900">Tenant profile</h2>
       <p className="mt-1 text-xs text-slate-600">
@@ -88,6 +91,31 @@ export function TenantProfilePage() {
           </Button>
         </div>
       </form>
+    </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm ring-1 ring-black/[0.04] md:hidden">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">More on your account</p>
+        <div className="mt-3 grid gap-2">
+          <NavLink
+            to={ROUTES.tenantOnboarding}
+            className="flex min-h-12 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-900 hover:bg-slate-100"
+          >
+            Onboarding & KYC
+          </NavLink>
+          <NavLink
+            to={ROUTES.tenantDocuments}
+            className="flex min-h-12 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-900 hover:bg-slate-100"
+          >
+            Documents
+          </NavLink>
+          <NavLink
+            to={ROUTES.tenantHistory}
+            className="flex min-h-12 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-900 hover:bg-slate-100"
+          >
+            History
+          </NavLink>
+        </div>
+      </div>
     </div>
   );
 }

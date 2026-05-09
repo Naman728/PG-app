@@ -1,0 +1,1 @@
+import{a as e}from"./vendor-query-CLZDnYeh.js";import{t}from"./EmailAuthForm-BmbeD_u0.js";var n=e();function r(){return(0,n.jsx)(t,{mode:`signup`})}export{r as SignupPage};

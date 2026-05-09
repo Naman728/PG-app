@@ -33,3 +33,8 @@ export function buildVacancyShareText(params: {
     .filter(Boolean)
     .join("\n");
 }
+
+/** Opens WhatsApp compose with prefilled text (mobile-friendly). */
+export function vacancyWhatsAppShareUrl(message: string): string {
+  return `https://wa.me/?text=${encodeURIComponent(message)}`;
+}

@@ -29,7 +29,7 @@ function OperationalRoomCardInner({ room, onSelect, dimmed }: Props) {
       type="button"
       onClick={() => onSelect(room)}
       className={[
-        "group flex min-h-[5.5rem] flex-col rounded-xl border-2 p-2.5 text-left transition will-change-transform",
+        "group flex min-h-[7rem] flex-col rounded-xl border-2 p-3 text-left transition will-change-transform sm:min-h-[5.75rem] sm:p-2.5",
         "hover:z-[1] hover:brightness-[1.02] active:scale-[0.99]",
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a4d32]",
         operationalRoomFrameClass(worst, hasVacancy, dimmed),

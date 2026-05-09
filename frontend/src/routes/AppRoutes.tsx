@@ -40,6 +40,7 @@ const OwnerTenantDetailPage = lazy(() =>
 const OwnerTenantsPage = lazy(() =>
   import("../pages/owner/OwnerTenantsPage").then((m) => ({ default: m.OwnerTenantsPage })),
 );
+const OwnerMorePage = lazy(() => import("../pages/OwnerMorePage").then((m) => ({ default: m.OwnerMorePage })));
 const TenantDocumentsPage = lazy(() =>
   import("../pages/tenant/TenantDocumentsPage").then((m) => ({ default: m.TenantDocumentsPage })),
 );
@@ -66,6 +67,9 @@ const TenantRentPage = lazy(() =>
 );
 const TenantHomePage = lazy(() =>
   import("../pages/tenant/TenantHomePage").then((m) => ({ default: m.TenantHomePage })),
+);
+const TenantNoticesPage = lazy(() =>
+  import("../pages/tenant/TenantNoticesPage").then((m) => ({ default: m.TenantNoticesPage })),
 );
 const TenantOnboardingPage = lazy(() =>
   import("../pages/tenant/TenantOnboardingPage").then((m) => ({ default: m.TenantOnboardingPage })),
@@ -97,6 +101,7 @@ export function AppRoutes() {
             <Route path="documents" element={<TenantDocumentsPage />} />
             <Route path="history" element={<TenantHistoryPage />} />
             <Route path="rent" element={<TenantRentPage />} />
+            <Route path="notices" element={<TenantNoticesPage />} />
             <Route path="maintenance/new" element={<TenantMaintenanceNewPage />} />
             <Route path="maintenance/:ticketId" element={<TenantMaintenanceDetailPage />} />
             <Route path="maintenance" element={<TenantMaintenanceListPage />} />
@@ -117,6 +122,7 @@ export function AppRoutes() {
             <Route path="rent" element={<OwnerRentPage />} />
             <Route path="maintenance/:ticketId" element={<OwnerMaintenanceTicketPage />} />
             <Route path="maintenance" element={<OwnerMaintenanceListPage />} />
+            <Route path="more" element={<OwnerMorePage />} />
             <Route index element={<OwnerDashboardPage />} />
           </Route>
           <Route path="*" element={<Navigate to={ROUTES.owner} replace />} />

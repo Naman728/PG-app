@@ -61,13 +61,18 @@ export function OwnerNotificationBell() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-medium text-emerald-50 hover:bg-white/10"
+        className={[
+          "relative min-h-10 rounded-lg border-2 px-3 py-2 text-sm font-semibold shadow-sm transition",
+          "border-white/50 bg-white/20 text-white ring-1 ring-white/25",
+          "hover:bg-white/30 hover:ring-white/40",
+          open ? "bg-white/35 ring-white/50" : "",
+        ].join(" ")}
         aria-expanded={open}
         aria-label="Notifications"
       >
         Alerts
         {unread > 0 ? (
-          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white">
+          <span className="absolute -right-1.5 -top-1.5 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-white bg-rose-600 px-1 text-[11px] font-bold text-white shadow-md">
             {unread > 9 ? "9+" : unread}
           </span>
         ) : null}
@@ -76,45 +81,45 @@ export function OwnerNotificationBell() {
         <>
           <button
             type="button"
-            className="fixed inset-0 z-30 cursor-default bg-transparent"
+            className="fixed inset-0 z-[10040] cursor-default bg-black/20 backdrop-blur-[1px]"
             aria-label="Close"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute right-0 z-40 mt-2 w-[min(100vw-2rem,22rem)] max-h-[70vh] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl ring-1 ring-black/5">
-            <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
-              <span className="text-sm font-semibold text-slate-900">Notifications</span>
+          <div className="absolute right-0 z-[10050] mt-2 w-[min(100vw-2rem,24rem)] max-h-[75vh] overflow-hidden rounded-xl border-2 border-slate-300 bg-white shadow-2xl ring-2 ring-slate-900/10">
+            <div className="flex items-center justify-between border-b-2 border-slate-200 bg-slate-50 px-4 py-3">
+              <span className="text-base font-bold text-slate-900">Notifications</span>
               {unread > 0 ? (
                 <button
                   type="button"
-                  className="text-xs font-medium text-primary hover:underline"
+                  className="text-sm font-semibold text-[#0f6e56] hover:underline"
                   onClick={() => void markAllRead()}
                 >
                   Mark all read
                 </button>
               ) : null}
             </div>
-            <div className="max-h-[55vh] overflow-y-auto">
+            <div className="max-h-[58vh] overflow-y-auto">
               {q.isLoading ? (
-                <p className="px-3 py-6 text-center text-sm text-slate-500">Loading…</p>
+                <p className="px-4 py-8 text-center text-base text-slate-600">Loading…</p>
               ) : !q.data?.items.length ? (
-                <p className="px-3 py-6 text-center text-sm text-slate-500">You&apos;re all caught up.</p>
+                <p className="px-4 py-8 text-center text-base text-slate-600">You&apos;re all caught up.</p>
               ) : (
-                <ul className="divide-y divide-slate-100">
+                <ul className="divide-y divide-slate-200">
                   {q.data.items.map((n) => (
                     <li key={n.id}>
                       <button
                         type="button"
                         className={[
-                          "w-full px-3 py-3 text-left transition hover:bg-slate-50",
-                          n.readAt ? "opacity-70" : "bg-amber-50/40",
+                          "w-full px-4 py-4 text-left transition",
+                          n.readAt ? "bg-white opacity-80 hover:bg-slate-50" : "bg-amber-100 hover:bg-amber-50",
                         ].join(" ")}
                         onClick={() => {
                           if (!n.readAt) void markRead(n.id);
                         }}
                       >
-                        <p className="text-xs font-semibold text-slate-900">{n.title}</p>
-                        <p className="mt-1 line-clamp-3 text-xs text-slate-600">{n.body}</p>
-                        <p className="mt-1 text-[10px] text-slate-400">
+                        <p className="text-sm font-bold text-slate-900">{n.title}</p>
+                        <p className="mt-1.5 line-clamp-4 text-sm leading-relaxed text-slate-800">{n.body}</p>
+                        <p className="mt-2 text-xs font-medium text-slate-500">
                           {new Date(n.createdAt).toLocaleString()}
                         </p>
                       </button>
@@ -123,8 +128,8 @@ export function OwnerNotificationBell() {
                 </ul>
               )}
             </div>
-            <div className="border-t border-slate-100 p-2">
-              <Button type="button" variant="secondary" className="w-full text-xs" onClick={() => setOpen(false)}>
+            <div className="border-t-2 border-slate-200 bg-slate-50 p-3">
+              <Button type="button" variant="secondary" className="h-11 w-full text-sm font-semibold" onClick={() => setOpen(false)}>
                 Close
               </Button>
             </div>

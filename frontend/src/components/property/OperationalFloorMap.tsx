@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { NavLink } from "react-router-dom";
 import { ROUTES } from "../../constants/routes";
+import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import {
   occupiedBedCount,
@@ -22,6 +23,10 @@ type Props = {
   search: string;
   onSearchChange: (s: string) => void;
   onRoomSelect: (room: PropertyMapRoom) => void;
+  /** When set, each floor header shows a delete control (owners/managers). */
+  canDeleteFloors?: boolean;
+  onDeleteFloor?: (floorId: string) => void;
+  deletingFloorId?: string | null;
 };
 
 function roomSearchMatch(room: PropertyMapRoom, search: string): boolean {
@@ -72,6 +77,9 @@ export function OperationalFloorMap({
   search,
   onSearchChange,
   onRoomSelect,
+  canDeleteFloors = false,
+  onDeleteFloor,
+  deletingFloorId = null,
 }: Props) {
   const totals = useMemo(() => {
     let beds = 0;
@@ -187,7 +195,7 @@ export function OperationalFloorMap({
             key={floor.id}
             className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm ring-1 ring-black/[0.04] sm:p-6 [content-visibility:auto] [contain-intrinsic-size:1px_480px]"
           >
-            <header className="mb-4 flex flex-col gap-1 border-b border-slate-100 pb-4 sm:flex-row sm:items-end sm:justify-between">
+            <header className="mb-4 flex flex-col gap-2 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 className="text-xl font-bold tracking-tight text-slate-900">{floor.name}</h2>
                 <p className="mt-1 text-sm font-medium text-slate-600">
@@ -197,6 +205,25 @@ export function OperationalFloorMap({
                   {fOcc} filled · {fVac} vacant · {fPct}% occupancy
                 </p>
               </div>
+              {canDeleteFloors && onDeleteFloor ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-10 shrink-0 self-start text-sm font-semibold text-red-700 hover:bg-red-50"
+                  disabled={deletingFloorId === floor.id}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Remove “${floor.name}” and all rooms and beds on this floor? This cannot be undone.`,
+                      )
+                    ) {
+                      onDeleteFloor(floor.id);
+                    }
+                  }}
+                >
+                  {deletingFloorId === floor.id ? "Deleting…" : "Delete floor"}
+                </Button>
+              ) : null}
             </header>
 
             {!visible.length ? (
@@ -204,7 +231,7 @@ export function OperationalFloorMap({
                 No rooms match these filters on this floor.
               </p>
             ) : (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+              <div className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                 {visible.map((room) => (
                   <OperationalRoomCard key={room.id} room={room} onSelect={onRoomSelect} dimmed={false} />
                 ))}

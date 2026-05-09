@@ -14,9 +14,47 @@ body,
   height: 100%;
 }
 
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);
   background: #f4f6f5;
   color: #0f172a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Sonner: sit above modals (z-50) and floor-map sticky bars; wider readable toasts */
+[data-sonner-toaster] {
+  --width: min(28rem, calc(100vw - 1.5rem)) !important;
+  z-index: 10060 !important;
+}
+
+[data-sonner-toast] {
+  box-shadow:
+    0 16px 48px rgba(15, 23, 42, 0.22),
+    0 0 0 1px rgba(15, 23, 42, 0.08) !important;
+}
+
+[data-sonner-toast][data-type="success"] {
+  border-color: rgb(5 150 105 / 0.55) !important;
+}
+
+[data-sonner-toast][data-type="error"] {
+  border-color: rgb(220 38 38 / 0.65) !important;
+}
+
+[data-sonner-toast][data-type="warning"] {
+  border-color: rgb(217 119 6 / 0.55) !important;
 }

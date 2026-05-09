@@ -1,1 +1,0 @@
-import{n as e,t}from"./api-client-CJ3iZfqW.js";async function n(n,r){return e(await t.patch(`/owner/organizations/${n}`,r))}async function r(n){return e(await t.get(`/owner/organizations/${n}/tenant-invitations`))}async function i(n,r){return e(await t.post(`/owner/organizations/${n}/tenant-invitations`,r))}export{r as n,n as r,i as t};

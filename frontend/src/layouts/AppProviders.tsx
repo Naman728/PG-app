@@ -2,6 +2,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { Toaster } from "sonner";
 import { ModalProvider } from "../components/modals/ModalProvider";
+import { OfflineNotice } from "../components/pwa/OfflineNotice";
+import { PwaReloadPrompt } from "../components/pwa/PwaReloadPrompt";
 import { queryClient } from "../lib/query-client";
 import { fetchMe, refreshSession } from "../services/auth.api";
 import { useAuthStore } from "../store/auth.store";
@@ -74,8 +76,33 @@ export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ModalProvider>
+        <OfflineNotice />
         {children}
-        <Toaster richColors closeButton />
+        <PwaReloadPrompt />
+        <Toaster
+          position="top-center"
+          theme="light"
+          expand
+          richColors
+          closeButton
+          duration={6000}
+          gap={14}
+          visibleToasts={5}
+          offset="1rem"
+          mobileOffset="0.75rem"
+          toastOptions={{
+            classNames: {
+              toast:
+                "!rounded-xl !p-4 !text-[15px] !leading-snug !shadow-2xl !border-2 !border-slate-200/90 !bg-white !text-slate-900 sm:!text-base",
+              title: "!text-[15px] !font-semibold !text-slate-950 sm:!text-base",
+              description: "!text-sm !text-slate-700 !mt-0.5",
+              closeButton:
+                "!left-auto !right-2 !top-2 !size-8 !border-2 !border-slate-300 !bg-white !opacity-100 hover:!bg-slate-50",
+            },
+          }}
+          className="!z-[10060]"
+          style={{ zIndex: 10060 }}
+        />
       </ModalProvider>
     </QueryClientProvider>
   );

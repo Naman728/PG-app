@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import {
@@ -11,7 +11,7 @@ import {
   type UpdateRoomLayoutInput,
 } from "@pg-manager/shared";
 import { z } from "zod";
-import { NavLink } from "react-router-dom";
+import { NavLink, useSearchParams } from "react-router-dom";
 import { BedCard } from "../components/property/BedCard";
 import { FloorMapGrid } from "../components/property/FloorMapGrid";
 import { OperationalFloorMap } from "../components/property/OperationalFloorMap";
@@ -70,6 +70,7 @@ function nextRoomPlacement(floor: PropertyMapFloor): CreateRoomInput {
 
 export function OwnerPropertyPage() {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const session = useSessionQuery();
   const orgId = session.data?.primaryOrganization?.id;
   const orgRole = session.data?.primaryOrganization?.orgRole;
@@ -110,6 +111,29 @@ export function OwnerPropertyPage() {
   });
 
   const floors = useMemo(() => mapQuery.data?.floors ?? [], [mapQuery.data?.floors]);
+
+  const dismissRoomPanel = useCallback(() => {
+    setSelectedRoomId(null);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (!next.has("room")) return prev;
+        next.delete("room");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [setSearchParams]);
+
+  useEffect(() => {
+    const roomId = searchParams.get("room");
+    if (!roomId || !floors.length) return;
+    const exists = floors.some((f) => f.rooms.some((r) => r.id === roomId));
+    if (exists) {
+      // Sync deep-link (?room=) from router to local panel state when the floor map loads.
+      queueMicrotask(() => setSelectedRoomId(roomId));
+    }
+  }, [floors, searchParams]);
 
   const [setupFloorId, setSetupFloorId] = useState<string | null>(null);
   const selectedFloorIdForSetup = useMemo(() => {
@@ -193,9 +217,10 @@ export function OwnerPropertyPage() {
 
   const deleteFloorMut = useMutation({
     mutationFn: (id: string) => deleteFloorApi(orgId!, id),
-    onSuccess: async () => {
+    onSuccess: async (_data, deletedId) => {
       toast.success("Floor removed");
       setSelectedRoomId(null);
+      setSetupFloorId((prev) => (prev === deletedId ? null : prev));
       await invalidateProperty();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -432,6 +457,9 @@ export function OwnerPropertyPage() {
               search={search}
               onSearchChange={setSearch}
               onRoomSelect={(room) => setSelectedRoomId(room.id)}
+              canDeleteFloors={canStructure}
+              onDeleteFloor={(id) => deleteFloorMut.mutate(id)}
+              deletingFloorId={deleteFloorMut.isPending ? (deleteFloorMut.variables ?? null) : null}
             />
           ) : null}
 
@@ -472,20 +500,46 @@ export function OwnerPropertyPage() {
               </form>
 
               {floors.length > 0 ? (
-                <label className="mt-6 block text-sm font-medium text-slate-700">
-                  Where should new rooms be added?
-                  <select
-                    className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-3 text-base"
-                    value={selectedFloorIdForSetup ?? ""}
-                    onChange={(e) => setSetupFloorId(e.target.value || null)}
-                  >
-                    {floors.map((f) => (
-                      <option key={f.id} value={f.id}>
-                        {f.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <div className="mt-6 space-y-3">
+                  <label className="block text-sm font-medium text-slate-700">
+                    Where should new rooms be added?
+                    <select
+                      className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-3 text-base"
+                      value={selectedFloorIdForSetup ?? ""}
+                      onChange={(e) => setSetupFloorId(e.target.value || null)}
+                    >
+                      {floors.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs text-slate-600">
+                      Remove a floor and <strong>all</strong> its rooms and beds (soft-deleted on the server).
+                    </p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-11 shrink-0 text-sm font-semibold text-red-700 hover:bg-red-100/80"
+                      disabled={!selectedFloorIdForSetup || deleteFloorMut.isPending}
+                      onClick={() => {
+                        const f = floors.find((x) => x.id === selectedFloorIdForSetup);
+                        if (!f) return;
+                        if (
+                          window.confirm(
+                            `Remove “${f.name}” and all rooms and beds on it? This cannot be undone.`,
+                          )
+                        ) {
+                          deleteFloorMut.mutate(f.id);
+                        }
+                      }}
+                    >
+                      {deleteFloorMut.isPending ? "Deleting…" : "Delete selected floor"}
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <p className="mt-6 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600 ring-1 ring-slate-200/80">
                   No floors yet — use <strong>Add floor</strong> above, then your room list will appear.
@@ -591,7 +645,7 @@ export function OwnerPropertyPage() {
               className="fixed inset-0 z-40 flex justify-end bg-black/30 p-2 sm:p-4"
               role="presentation"
               onMouseDown={(e) => {
-                if (e.target === e.currentTarget) setSelectedRoomId(null);
+                if (e.target === e.currentTarget) dismissRoomPanel();
               }}
             >
               <aside
@@ -609,7 +663,7 @@ export function OwnerPropertyPage() {
                   <button
                     type="button"
                     className="rounded-lg px-2 py-1 text-sm text-slate-600 hover:bg-slate-100"
-                    onClick={() => setSelectedRoomId(null)}
+                    onClick={() => dismissRoomPanel()}
                   >
                     Close
                   </button>
