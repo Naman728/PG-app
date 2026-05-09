@@ -7,7 +7,7 @@
     "packages/shared"
   ],
   "scripts": {
-    "prepare": "node scripts/prepare.cjs",
+    "prepare": "node ./scripts/prepare.cjs",
     "dev": "concurrently \"npm run dev -w backend\" \"npm run dev -w frontend\"",
     "build": "npm run build -w @pg-manager/shared && npm run build -w backend && npm run build -w frontend",
     "lint": "npm run lint -w frontend && npm run lint -w backend",

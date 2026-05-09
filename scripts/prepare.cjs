@@ -1,39 +1,49 @@
 /**
- * Root `prepare` lifecycle: build shared workspace, then install Husky git hooks locally only.
+ * Root `prepare`: always compile @pg-manager/shared, then install Husky locally when allowed.
  *
- * Skips Husky when:
- * - `CI=true` (GitHub Actions, etc.)
- * - `VERCEL=1` (Vercel install/build)
- * - `HUSKY=0` (explicit opt-out)
+ * Husky is skipped when CI=true, VERCEL=1, or HUSKY=0 (Vercel / CI / explicit opt-out).
+ * Husky failures never fail `npm install` (missing binary, npx errors, etc.).
  *
- * Also skips if the `husky` binary is missing (e.g. `npm install --omit=dev`).
+ * Shared build failures ARE propagated so broken workspaces do not silently install.
  */
+"use strict";
+
 const { execSync } = require("node:child_process");
 
-function run(cmd) {
-  execSync(cmd, { stdio: "inherit", env: process.env });
+const opts = {
+  stdio: "inherit",
+  env: process.env,
+  shell: true,
+};
+
+try {
+  execSync("npm run build -w @pg-manager/shared", opts);
+} catch (err) {
+  const st = typeof err.status === "number" ? err.status : 1;
+  console.error("[prepare] @pg-manager/shared build failed");
+  process.exit(st);
 }
 
-run("npm run build -w @pg-manager/shared");
-
-const skipHusky =
+const vercel = String(process.env.VERCEL || "").toLowerCase();
+const skip =
   process.env.HUSKY === "0" ||
   process.env.CI === "true" ||
-  String(process.env.VERCEL || "") === "1";
+  vercel === "1" ||
+  vercel === "true";
 
-if (skipHusky) {
-  console.log("[prepare] skipping husky (CI, Vercel, or HUSKY=0)");
+if (skip) {
+  console.log("[prepare] skipping husky");
   process.exit(0);
 }
 
 try {
-  run("husky");
-} catch (err) {
-  const code = err?.code;
-  const status = err?.status;
-  if (code === "ENOENT" || status === 127) {
-    console.warn("[prepare] husky binary not found; skipping (production or minimal install)");
-    process.exit(0);
+  execSync("npx husky", opts);
+} catch {
+  try {
+    execSync("husky", opts);
+  } catch {
+    console.warn("[prepare] husky skipped");
   }
-  process.exit(status ?? 1);
 }
+
+process.exit(0);
