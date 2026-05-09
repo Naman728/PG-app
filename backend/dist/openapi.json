@@ -1,0 +1,133 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PG Manager API",
+    "version": "1.0.0",
+    "description": "PG operations API. Use `Authorization: Bearer <access_token>` for authenticated routes."
+  },
+  "servers": [{ "url": "http://localhost:3000", "description": "Local API" }],
+  "tags": [
+    { "name": "Health" },
+    { "name": "Auth" },
+    { "name": "Owner" },
+    { "name": "Tenant" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Liveness (legacy)",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/health/live": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Liveness",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Readiness (database)",
+        "responses": { "200": { "description": "OK" }, "503": { "description": "Unavailable" } }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Current user session",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Profile" } }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Sign up (email + password)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 8 },
+                  "name": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Session created; refresh cookie set" } }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Sign in (email + password)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Session; refresh cookie set" } }
+      }
+    },
+    "/api/v1/owner/summary": {
+      "get": {
+        "tags": ["Owner"],
+        "summary": "Owner shell probe",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/api/v1/owner/organizations/{orgId}/maintenance/tickets": {
+      "get": {
+        "tags": ["Owner"],
+        "summary": "List maintenance tickets",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "orgId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": { "200": { "description": "Paginated list" } }
+      }
+    },
+    "/api/v1/tenant/me/maintenance/tickets": {
+      "get": {
+        "tags": ["Tenant"],
+        "summary": "List my maintenance tickets",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Paginated list" } }
+      },
+      "post": {
+        "tags": ["Tenant"],
+        "summary": "Create maintenance ticket",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Created" } }
+      }
+    }
+  }
+}

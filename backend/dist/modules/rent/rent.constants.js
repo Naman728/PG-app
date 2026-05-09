@@ -1,0 +1,5 @@
+export const NOTIFICATION_JOB_TYPES = {
+    RENT_TENANT_REMINDER: "RENT_TENANT_REMINDER",
+    RENT_OWNER_OVERDUE_DIGEST: "RENT_OWNER_OVERDUE_DIGEST",
+};
+//# sourceMappingURL=rent.constants.js.map
