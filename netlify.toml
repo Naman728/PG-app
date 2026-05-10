@@ -1,3 +1,9 @@
+# Netlify inlines Vite env at BUILD time. Without VITE_API_URL, the SPA defaults to
+# http://localhost:3000/api/v1 and every API call fails from the deployed site.
+# Set in UI: Site configuration → Environment variables → Add variable → scope "Build".
+# Example: VITE_API_URL = https://your-api-host.example.com/api/v1
+# Backend must allow this site's origin (FRONTEND_URL or CORS_ORIGINS) for cookie auth.
+
 [build]
 base = "frontend"
 publish = "dist"
